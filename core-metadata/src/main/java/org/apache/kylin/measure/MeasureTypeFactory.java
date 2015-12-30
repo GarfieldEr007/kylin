@@ -23,6 +23,7 @@ import java.util.Map;
 
 import org.apache.kylin.measure.basic.BasicMeasureType;
 import org.apache.kylin.measure.hllc.HLLCMeasureType;
+import org.apache.kylin.measure.raw.RawMeasureType;
 import org.apache.kylin.measure.topn.TopNMeasureType;
 import org.apache.kylin.metadata.datatype.DataType;
 import org.apache.kylin.metadata.datatype.DataTypeSerializer;
@@ -92,6 +93,7 @@ abstract public class MeasureTypeFactory<T> {
         // two built-in advanced measure types
         factoryInsts.add(new HLLCMeasureType.Factory());
         factoryInsts.add(new TopNMeasureType.Factory());
+        factoryInsts.add(new RawMeasureType.Factory());
 
         /*
          * Maybe do classpath search for more custom measure types?

@@ -77,6 +77,10 @@ public class BasicMeasureType extends MeasureType {
             if (rtype.isNumberFamily() == false) {
                 throw new IllegalArgumentException("Return type for function " + funcName + " must be one of " + DataType.NUMBER_FAMILY);
             }
+        } else if (funcName.equals(FunctionDesc.FUNC_RAW)) {
+            if (!FunctionDesc.FUNC_RAW.equalsIgnoreCase(rtype.getName())) {
+                throw new IllegalArgumentException("Return type for function " + funcName + " must be raw ");
+            }
         } else {
             KylinConfig config = KylinConfig.getInstanceFromEnv();
             if (config.isQueryIgnoreUnknownFunction() == false)

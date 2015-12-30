@@ -178,48 +178,40 @@ public class OLAPEnumerator implements Enumerator<Object[]> {
             return;
 
         // If no group by and metric found, then it's simple query like select ... from ... where ...,
-        // But we have no raw data stored, in order to return better results, we hack to output sum of metric column
-        logger.info("No group by and aggregation found in this query, will hack some result for better look of output...");
+        logger.info("No group by and aggregation found in this query, will trigger raw query...");
 
         // If it's select * from ...,
         // We need to retrieve cube to manually add columns into sqlDigest, so that we have full-columns results as output.
         IRealization cube = olapContext.realization;
         boolean isSelectAll = sqlDigest.allColumns.isEmpty() || sqlDigest.allColumns.equals(sqlDigest.filterColumns);
         for (TblColRef col : cube.getAllColumns()) {
-            if (col.getTable().equals(sqlDigest.factTable) && (cube.getAllDimensions().contains(col) || isSelectAll)) {
+            if (col.getTable().equals(sqlDigest.factTable) && isSelectAll) {
                 sqlDigest.allColumns.add(col);
             }
         }
 
         for (TblColRef col : sqlDigest.allColumns) {
-            // For dimension columns, take them as group by columns.
-            if (cube.getAllDimensions().contains(col)) {
-                sqlDigest.groupbyColumns.add(col);
-            }
-            // For measure columns, take them as metric columns with aggregation function SUM().
-            else {
-                ParameterDesc colParameter = new ParameterDesc();
-                colParameter.setType("column");
-                colParameter.setValue(col.getName());
-                FunctionDesc sumFunc = new FunctionDesc();
-                sumFunc.setExpression("SUM");
-                sumFunc.setParameter(colParameter);
+            //For columns which has defined raw measure function, take them as metric columns with aggregation function RAW().
+            ParameterDesc colParameter = new ParameterDesc();
+            colParameter.setType("column");
+            colParameter.setValue(col.getName());
+            FunctionDesc rawFunc = new FunctionDesc();
+            rawFunc.setExpression("RAW");
+            rawFunc.setParameter(colParameter);
 
-                boolean measureHasSum = false;
-                for (MeasureDesc colMeasureDesc : cube.getMeasures()) {
-                    if (colMeasureDesc.getFunction().equals(sumFunc)) {
-                        measureHasSum = true;
-                        break;
-                    }
+            boolean measureHasRaw = false;
+            for (MeasureDesc colMeasureDesc : cube.getMeasures()) {
+                if (colMeasureDesc.getFunction().equals(rawFunc)) {
+                    measureHasRaw = true;
+                    break;
                 }
-                if (measureHasSum) {
-                    sqlDigest.aggregations.add(sumFunc);
-                } else {
-                    logger.warn("SUM is not defined for measure column " + col + ", output will be meaningless.");
-                }
-
-                sqlDigest.metricColumns.add(col);
             }
+            if (measureHasRaw) {
+                sqlDigest.aggregations.add(rawFunc);
+            } else {
+                logger.warn("RAW is not defined for measure column " + col + ", output will be meaningless.");
+            }
+            sqlDigest.metricColumns.add(col);
         }
     }
 
