@@ -214,7 +214,7 @@ public class RawMeasureType extends MeasureType<List<ByteArray>> {
                 ByteArray raw = rawIterator.next();
                 int key = BytesUtil.readUnsigned(raw.array(), 0, raw.array().length);
                 String colValue = rawColDict.getValueFromId(key);
-                tuple.setMeasureValue(literalTupleIdx, colValue);
+                tuple.setDimensionValue(literalTupleIdx, colValue);
             }
         };
     }
