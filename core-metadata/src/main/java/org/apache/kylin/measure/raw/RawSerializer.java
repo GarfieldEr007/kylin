@@ -30,6 +30,9 @@ import java.util.List;
 @SuppressWarnings("unused")
 public class RawSerializer extends DataTypeSerializer<List<ByteArray>> {
 
+    //one dictionary id value need 2 bytes, this buffer can contain ~ 512 * 1024 values
+    //FIXME to config this and RowConstants.ROWVALUE_BUFFER_SIZE in properties file
+    public static final int RAW_BUFFER_SIZE = 1024 * 1024;//1M
 
     public RawSerializer(DataType dataType) {
     }
@@ -38,9 +41,9 @@ public class RawSerializer extends DataTypeSerializer<List<ByteArray>> {
     public int peekLength(ByteBuffer in) {
         int mark = in.position();
         int len = 0;
-        if(in.hasRemaining()) {
-            int size = in.getInt();
-            int bytes = in.getInt();
+        if (in.hasRemaining()) {
+            int size = BytesUtil.readVInt(in);
+            int bytes = BytesUtil.readVInt(in);
             len = in.position() - mark + bytes;
         }
         in.position(mark);
@@ -49,26 +52,30 @@ public class RawSerializer extends DataTypeSerializer<List<ByteArray>> {
 
     @Override
     public int maxLength() {
-        return 1024 * 1024;
+        return RAW_BUFFER_SIZE;
     }
 
     @Override
     public int getStorageBytesEstimate() {
-        return 1024 * 1024;
+        return RAW_BUFFER_SIZE;
     }
 
     @Override
     public void serialize(List<ByteArray> value, ByteBuffer out) {
-        if(value != null) {
+        if (value != null) {
             int bytes = 0;
             for (ByteArray array : value) {
+                //in BytesUtil.writeByteArray, writeVInt only need 1 byte,
+                //because dictionary id length is less than 127
+                //so one value will need 2 bytes
                 bytes += (array.length() + 1);
             }
+            //size and bytes value will need <=8 bytes
+            BytesUtil.writeVInt(value.size(), out);
+            BytesUtil.writeVInt(bytes, out);
             if (bytes > out.remaining()) {
                 throw new RuntimeException("BufferOverflow! Please use one higher cardinality column for dimension column when build RAW cube!");
             }
-            out.putInt(value.size());
-            out.putInt(bytes);
             for (ByteArray array : value) {
                 BytesUtil.writeByteArray(array.array(), out);
             }
@@ -78,9 +85,9 @@ public class RawSerializer extends DataTypeSerializer<List<ByteArray>> {
     @Override
     public List<ByteArray> deserialize(ByteBuffer in) {
         List<ByteArray> value = null;
-        if(in.hasRemaining()) {
-            int size = in.getInt();
-            int bytes = in.getInt();
+        if (in.hasRemaining()) {
+            int size = BytesUtil.readVInt(in);
+            int bytes = BytesUtil.readVInt(in);
             value = new ArrayList<ByteArray>(size);
             for (int i = 0; i < size; i++) {
                 value.add(new ByteArray(BytesUtil.readByteArray(in)));
